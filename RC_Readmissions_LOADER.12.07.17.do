@@ -6,6 +6,8 @@ cd "/Users/Putnam_Cole/Dropbox/1_ResearchProjects/1_HarvardProjects/NRD_RC_Predi
 /* Read data elements from hospital file, label variables, recode missing variables */
 import delimited "NRD_2014_Hospital.csv";
 
+TEST
+
 rename v1   HOSP_BEDSIZE;
 rename v2   H_CONTROL;
 rename v3   HOSP_NRD;
