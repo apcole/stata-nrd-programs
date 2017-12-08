@@ -416,30 +416,42 @@ keep if KEY_NRD != KEY_NRD_INDEX &
 	NRD_DAYSTOEVENT >= DISCHARGE_DATE &
 		NRD_DAYSTOEVENT <= ( DISCHARGE_DATE + 30 ) ;
 		
-/* Identify closest readmission if there are multiple readmission events */
+/* IDENTIFY AND CODE READMISSIONS */
+#delimit ;
 sort HOSP_NRD_INDEX KEY_NRD_INDEX NRD_DAYSTOEVENT ;
 by HOSP_NRD_INDEX KEY_NRD_INDEX: gen f_num = 1 if _n == 1; 
-keep if f_num == 1 ;
+gen EVENT=0;
+replace EVENT=1 if f_num==1;
+replace EVENT=0 if f_num==.;
+keep if f_num == 0|1 ;
 
 /* Save readmission events */
-/* "NRD_2014_Core_readmit.dta"*/
-/* which is just the readmission visits*/
 drop HOSP_NRD KEY_NRD ;
 	rename HOSP_NRD_INDEX HOSP_NRD ;
 	rename KEY_NRD_INDEX KEY_NRD ;
-save "NRD_2014_Core_Readmit.dta", replace;
-
+save "NRD_2014_Core_readmit.dta", replace ;
 
 /* Load core file and subset by index events */
-# delimit; 
 use "NRD_2014_Core.dta", replace ; 
-	sort HOSP_NRD KEY_NRD ; 
-		keep if INDEX_EVENT == 1 ;
-/* Merge and flag readmission events */
-merge 1:1 HOSP_NRD KEY_NRD using "NRD_2014_Core_Readmit.dta" ; 
+	sort HOSP_NRD KEY_NRD ;
+		
+/* not sure about this - Will have to merge but also keep the no match since they are the readmissions observations! we can look this up tomorrow, you probably know how - i am pretty novice with stata's functions */
+#delimit ;
+merge m:1 HOSP_NRD KEY_NRD using "NRD_2014_Core.dta" ; 
 	gen READMIT = ( _merge == 3 ); 
 			drop _merge;
-save "NRD_2014_Core_Readmit.dta", replace;
+keep if READMIT ==1
+save "NRD_2014_Core_readmit.dta", replace;
+
+*delete duplicate NRD_VISITLINK and merge with CCI database and save and overwrite with a new readmit.CCI */
+#delimit ;
+use "NRD_2014_Core_readmit.dta", clear;
+	bysort NRD_VISITLINK: gen n=_n ;
+		tab n, missing;
+			keep if n==1;
+				merge 1:1 NRD_VISITLINK using "NRD_2014_Core_CCI.dta";
+					drop _merge;
+save "NRD_2014_Core_readmit.CCI.dta", replace;
 
 /*****************/
 /* Calculate CCI */
