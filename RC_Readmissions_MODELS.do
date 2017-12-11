@@ -134,6 +134,129 @@ predict re*, reffects
 describe re1
 sum re1, detail
 
+***> Calculate standard errors for re*
+predict se1*, reses
+
+***> Linear predictor for the fixed effects
+predict xb, xb 
+describe xb
+sum xb, detail
+
+
+***> Predicted mean including both fixed and random effects. By default, this is based on a linear predictor that includes both the fixed effects and the random effects, and the predicted mean is conditional on the values of the random effects.
+// See 	http://www.stata-press.com/manuals/errata/stata12/i/xtmelogit_postestimation.pdf
+predict mu, mu
+describe mu
+sum mu, detail
+**> Predicted mean probability from mixed-effects model by each facility
+bysort HOSP_NRD: egen meanmufac = mean (mu)
+
+**> Predicted mean probability from mixed-effects model overall
+egen meanmu = mean (mu)
+
+
+******************
+*** EXPERIMENT ***
+******************
+
+***> Calculate standard errors for re*
+predict se2*, reses
+
+*> (1) Analyses using "meanmu", which should be predicted mean probability from mixed-effects models
+gen logitmeanmu=log(meanmu/(1-meanmu))
+gen preread=exp(logitmeanmu+re1)/(1+exp(logitmeanmu+re1))
+sum preread, detail
+
+bysort HOSP_NRD: egen meanpreread=mean(preread)
+
+*> Generate lower and upper confidence intervals for preread (Dr. Lipsitz)
+gen lowerci=logitmeanmu+re1-1.96*se1
+gen upperci=logitmeanmu+re1+1.96*se1
+
+gen lowerpreread=exp(lowerci)/(1+exp(lowerci))
+bysort HOSP_NRD: egen lowermeanpreread=mean(lowerpreread)
+gen upperpreread=exp(upperci)/(1+exp(upperci))
+bysort HOSP_NRD: egen uppermeanpreread=mean(upperpreread)
+
+**> Then use "lowermeanpreread" and "uppermeanpreread" for collapsing command (rank meanpreread after collapsing)
+egen rankmeanpreread=rank(meanpreread)
+twoway (scatter meanpreread rankmeanpreread)(scatter lowermeanpreread rankmeanpreread)(scatter uppermeanpreread rankmeanpreread)
+
+
+
+
+*********
+****** OR
+*********
+
+*> Mean overall readmission rate (unadjusted??)
+egen meanread=mean(READMIT)
+
+*> (2) Analyses using "meanread", which should be unadjusted (?) mean readmission rate (?) in overall population
+gen logitmeanread=log(meanread/(1-meanread))
+gen preread2=exp(logitmeanread+re1)/(1+exp(logitmeanread+re1))
+sum preread2, detail
+bysort HOSP_NRD: egen meanpreread2=mean(preread2)
+
+
+*> Generate lower and upper confidence intervals for preread2 (Dr. Lipsitz)
+gen lowerci2=logitmeanread+re1-1.96*se1
+gen upperci2=logitmeanread+re1+1.96*se1
+
+gen lowerpreread2=exp(lowerci2)/(1+exp(lowerci2))
+bysort HOSP_NRD: egen lowermeanpreread2=mean(lowerpreread2)
+gen upperpreread2=exp(upperci2)/(1+exp(upperci2))
+bysort HOSP_NRD: egen uppermeanpreread2=mean(upperpreread2)
+
+
+save "BladderPostmixes1.dta", replace
+
+************************************************************************************************************************
+*** Create new dataset to collapse variables if interest (for figures) by facilityid, and to get facility-level dots ***
+************************************************************************************************************************
+
+use "BladderPostmixes1.dta", clear
+
+collapse meanpreread2 lowermeanpreread2 uppermeanpreread2 mu meanmu AGE SEX CCI_CAT CASELOAD_QUART MINIMALLY_INVASIVE PAYOR H_CONTROL ZIPINC_QRTL HOSP_BEDSIZE DMONTH LOS INDEX_COSTS , by(HOSP_NRD)
+
+***> Rank everything NOW, because then it will be facility-level.
+
+egen rankmeanpreread=rank(meanpreread)
+egen rankmeanpreread2=rank(meanpreread2)
+
+
+**********************
+*** Create figures ***
+**********************
+
+scatter meanpreread2 rankmeanpreread2 || lowermeanpreread2 rankmeanpreread2
+scatter meanpreread rankmeanpreread || lowermeanpreread rankmeanpreread
+
+histobox meanpreread2 
+scatter preread meancaseload || lfit preread meancaseload
+
+graph box meanpreread2, over(CCI_CAT)
+
+
+twoway (scatter meanpreread2 rankmeanpreread2)(scatter lowermeanpreread2 rankmeanpreread2)(scatter uppermeanpreread2 rankmeanpreread2)
+twoway (scatter meanpreread rankmeanpreread)(scatter lowermeanpreread rankmeanpreread)(scatter uppermeanpreread rankmeanpreread)
+
+
+
+twoway rcap lowermeanpreread uppermeanpreread rankmeanpreread || scatter meanpreread rankmeanpreread, legend(label(1 "faci") Label(2 "bet)"
+
+twoway rcap lowermeanpreread uppermeanpreread rankmeanpreread || scatter meanpreread rankmeanpreread, ytitle("Mean probability (%)") xtitle("Commission on Cancer-Accredited Facilities (N = 1,139)") xlabel(0(100)1200) legend(order(2 "Facility-level adjusted mean probabilities of unplanned 30-day readmission rates (based on mixed-effects hierarchical logistic regression model)" )) legend(size(tiny))
+
+
+
+
+
+
+
+
+
+
+
 /*BELOW HERE JUST PLAYING AROUND*/
 
 logit READMIT i.ROBOT_ASSISTED i.CCI_CAT, or
