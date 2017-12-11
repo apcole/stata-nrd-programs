@@ -90,19 +90,28 @@ xtmelogit READMIT c.AGE i.SEX i.CCI_CAT, or || HOSP_NRD: , intpoints(10)
 xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART, or || HOSP_NRD: , intpoints(10) 
 xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE , or || HOSP_NRD: , intpoints(10) 
 xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR, or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR c.H_CONTROL, or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR c.H_CONTROL i.ZIPINC_QRTL i.DMONTH, or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.HOSP_BEDSIZE i.ZIPINC_QRTL i.DMONTH, or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR c.H_CONTROL i.HOSP_BEDSIZE i.ZIPINC_QRTL i.DMONTH c.LOS, or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR c.H_CONTROL i.HOSP_BEDSIZE i.ZIPINC_QRTL i.DMONTH c.LOS c.INDEX_COSTS, or || HOSP_NRD: , intpoints(10) 
+xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL, or || HOSP_NRD: , intpoints(10) 
+xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.DMONTH, or || HOSP_NRD: , intpoints(10) 
+xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE i.DMONTH, or || HOSP_NRD: , intpoints(10) 
+xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE i.DMONTH c.LOS, or || HOSP_NRD: , intpoints(10) 
+xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE  i.DMONTH c.LOS c.INDEX_COSTS, or || HOSP_NRD: , intpoints(10) 
 
 /***> Calculation of chi square values for partial R-square calculations (To calculate R-square use Excel-Calculator)*/
 /* Patient-level socioeconomic demographics// combined patient level variables*/
-testparm c.AGE 
-* Single patient-level variables
+testparm c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE i.DMONTH c.LOS c.INDEX_COSTS 
+/* Single patient-level variables*/
 testparm c.AGE
-testparm i.sex
-
+testparm i.SEX 
+testparm i.CCI_CAT 
+testparm i.PAYOR
+testparm i.ZIPINC_QRTL 
+testparm i.MINIMALLY_INVASIVE 
+/* Combined hospital level variables**/
+testparm i.H_CONTROL i.HOSP_BEDSIZE i.CASELOAD_QUART 
+/** Single hospital level variables**/
+testparm i.H_CONTROL
+testparm i.HOSP_BEDSIZE
+testparm i.CASELOAD_QUART
 
 
 

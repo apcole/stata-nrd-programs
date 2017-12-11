@@ -375,21 +375,38 @@ foreach x of varlist PR1-PR15 {;
 };
 generate MINIMALLY_INVASIVE=0;
 foreach x of varlist PR1-PR15 {;
-  replace MINIMALLY_INVASIVE=1 if `x'==1742 |
-	`x'==5451 |
+  replace MINIMALLY_INVASIVE=1 if 
+		`x'==1742 |
+		`x'==5451 |
 		`x'==5421;
 };
 generate ROBOT_ASSISTED=0;
-foreach x of varlist PR1-PR15 {;
-  replace ROBOT_ASSISTED=1 if `x'==1742;
+foreach x of varlist PR1-PR15{;
+	replace ROBOT_ASSISTED=1 if
+	`x'==1742	;
+		};
+#delim ; 
+generate INDEX_DX=0;
+foreach x of varlist DX1-DX30 {;
+  replace INDEX_DX=1 if 
+		`x'=="1880" |
+		`x'=="1881" |
+		`x'=="1882" |
+		`x'=="1883" |
+		`x'=="1884" |
+		`x'=="1885" |
+		`x'=="1886" |
+		`x'=="1887" |
+		`x'=="1888" |
+		`x'=="1889" |
+		`x'=="2337" ;
 };
 
-#delimit;
+
 /* Save datasets for merge */
 save "NRD_2014_Core.dta", replace;
 
-
-#delimit;    
+#delimit;  
 use "NRD_2014_Core.dta", replace;  
 drop DISCWT LOS NRD_STRATUM INDEX_EVENT ; 
 save "NRD_2014_Core_r.dta", replace ;
@@ -416,42 +433,30 @@ keep if KEY_NRD != KEY_NRD_INDEX &
 	NRD_DAYSTOEVENT >= DISCHARGE_DATE &
 		NRD_DAYSTOEVENT <= ( DISCHARGE_DATE + 30 ) ;
 		
-/* IDENTIFY AND CODE READMISSIONS */
-#delimit ;
+/* Identify closest readmission if there are multiple readmission events */
 sort HOSP_NRD_INDEX KEY_NRD_INDEX NRD_DAYSTOEVENT ;
 by HOSP_NRD_INDEX KEY_NRD_INDEX: gen f_num = 1 if _n == 1; 
-gen EVENT=0;
-replace EVENT=1 if f_num==1;
-replace EVENT=0 if f_num==.;
-keep if f_num == 0|1 ;
+keep if f_num == 1 ;
 
 /* Save readmission events */
+/* "NRD_2014_Core_readmit.dta"*/
+/* which is just the readmission visits*/
 drop HOSP_NRD KEY_NRD ;
 	rename HOSP_NRD_INDEX HOSP_NRD ;
 	rename KEY_NRD_INDEX KEY_NRD ;
-save "NRD_2014_Core_readmit.dta", replace ;
+save "NRD_2014_Core_Readmit.dta", replace;
+
 
 /* Load core file and subset by index events */
+# delimit; 
 use "NRD_2014_Core.dta", replace ; 
-	sort HOSP_NRD KEY_NRD ;
-		
-/* not sure about this - Will have to merge but also keep the no match since they are the readmissions observations! we can look this up tomorrow, you probably know how - i am pretty novice with stata's functions */
-#delimit ;
-merge m:1 HOSP_NRD KEY_NRD using "NRD_2014_Core.dta" ; 
+	sort HOSP_NRD KEY_NRD ; 
+		keep if INDEX_EVENT == 1 ;
+/* Merge and flag readmission events */
+merge 1:1 HOSP_NRD KEY_NRD using "NRD_2014_Core_Readmit.dta" ; 
 	gen READMIT = ( _merge == 3 ); 
 			drop _merge;
-keep if READMIT ==1
-save "NRD_2014_Core_readmit.dta", replace;
-
-*delete duplicate NRD_VISITLINK and merge with CCI database and save and overwrite with a new readmit.CCI */
-#delimit ;
-use "NRD_2014_Core_readmit.dta", clear;
-	bysort NRD_VISITLINK: gen n=_n ;
-		tab n, missing;
-			keep if n==1;
-				merge 1:1 NRD_VISITLINK using "NRD_2014_Core_CCI.dta";
-					drop _merge;
-save "NRD_2014_Core_readmit.CCI.dta", replace;
+save "NRD_2014_Core_Readmit.dta", replace;
 
 /*****************/
 /* Calculate CCI */
@@ -664,7 +669,7 @@ save "NRD_2014_Core_Readmit.dta", replace;
 use "NRD_2014_Core_Readmit.dta", clear;
 
 /* Second generate variables according to complications */
-gen GI_OBSTRUCTION=0;
+gen GI_OBSTRUCTION =0;
 gen CDIFF=0;
 gen SEPSIS=0;
 gen BACTEREMIA=0; 
@@ -677,19 +682,21 @@ gen ABCESS=0;
 gen WOUND_COMPLICATIONS=0;
 gen SEROMA=0;
 gen CENTRAL_CATHETER_INFECTION=0;
-gen FOREIGN_BODY_OR_OTHER_NOS_COMPLICATION=0;
+gen FB_OR_OTHER_NOS_COMPLICATION=0;
 gen URETERAL_URETHRAL_STRICTURE=0;
 gen STOMA_COMPLICATION=0;
 gen DVT=0;
 gen PULMONARY_EMBOLISM=0;
-gen MYOCARDIAL_INFARCTION_CAD_COMPLICATION=0;
-gen HEMORRHAGE_OR_ACCIDENTAL_LACERATION=0;
+gen MI_CAD_COMPLICATION=0;
+gen PHLEBITIS=0;
+gen CARDIAC_COMPLICATION_NOS=0;
+gen HEMORRHAGE_OR_LACERATION=0;
 gen PNEUMONIA_PNEUMOTHORAX=0;
 
 /* label newly created variables */
 
 #delimit ;
-la var OBSTRUCTION "Obstruction GI NOS Or Ileus";
+la var GI_OBSTRUCTION  "Obstruction GI NOS Or Ileus";
 la var CDIFF "CDiff Infection" ;
 la var SEPSIS "Sepsis" ;
 la var BACTEREMIA "Bacteremia" ;
@@ -702,18 +709,21 @@ la var ABCESS "Abcess" ;
 la var WOUND_COMPLICATIONS "Wound Complications" ;
 la var SEROMA "Seroma" ;
 la var CENTRAL_CATHETER_INFECTION "Central Catheter Infection" ;
-la var FOREIGN_BODY_OR_OTHER_NOS_COMPLICATION "Foreign Body Or Other Nos Complication" ;
-la var URETERAL_URETHRAL_STRICTURE "Ureteral Or Urethral Stricture"
+la var FB_OR_OTHER_NOS_COMPLICATION "Foreign Body Or Other Nos Complication" ;
+la var URETERAL_URETHRAL_STRICTURE "Ureteral Or Urethral Stricture";
 la var STOMA_COMPLICATION "Stoma complication"  ;
 la var DVT "Deep vein thrombosis" ;
 la var PULMONARY_EMBOLISM "Pulmonary Embolism";
-la var MYOCARDIAL_INFARCTION_CAD_COMPLICATION "Myocardial infarction or coronary artery disease complication" ;
-la var HEMORRHAGE_OR_ACCIDENTAL_LACERATION "Hemorrhage or accidental laceration" ;
-la var PNEUMONIA_PNEUMOTHORAX "Pneumonia or pneumothorax" ;
+la var MI_CAD_COMPLICATION "MI CAD Complication";
+la var PHLEBITIS "Phlebitis";
+la var CARDIAC_COMPLICATION_NOS "Cardiac complication NOS";
+la var HEMORRHAGE_OR_LACERATION "Hemorrhage or accidental laceration" ;
+la var PNEUMONIA_PNEUMOTHORAX "Pneumonia or pneumothorax";
 
 /* In the following codes, replace "`icd_code'" with variables showing ICD 9 codes */
-foreach icd_code of varlist DX1-DX30{;
-	replace OBSTRUCTION=1 if 
+#delimit ;
+foreach icd_code of varlist DX1-DX30 {;
+	replace GI_OBSTRUCTION =1 if 
 		substr(`icd_code',1,5)=="55221"|
 		substr(`icd_code',1,4)=="5528"|
 		substr(`icd_code',1,3)=="560"|
@@ -774,7 +784,7 @@ foreach icd_code of varlist DX1-DX30{;
 		substr(`icd_code',1,5)=="59011"|
 		substr(`icd_code',1,4)=="5902"|
 		substr(`icd_code',1,5)=="59080"|
-		substr(`icd_code',1,4)=="5909"| ;
+		substr(`icd_code',1,4)=="5909";
 
 	replace URINARY_COMPLICATION_NOS=1 if 
 		substr(`icd_code',1,4)=="9975";	
@@ -803,7 +813,7 @@ foreach icd_code of varlist DX1-DX30{;
 		substr(`icd_code',1,5)=="99931"|
 		substr(`icd_code',1,5)=="99662";
 
-	replace FOREIGN_BODY_OR_OTHER_NOS_COMPLICATION=1 if 
+	replace FB_OR_OTHER_NOS_COMPLICATION=1 if 
 		substr(`icd_code',1,4)=="9984"|
 		substr(`icd_code',1,4)=="9998";
 
@@ -859,7 +869,7 @@ foreach icd_code of varlist DX1-DX30{;
 		substr(`icd_code',1,5)=="67383"|
 		substr(`icd_code',1,5)=="67384";
 
-	replace MYOCARDIAL_INFARCTION_CAD_COMPLICATION=1 if 
+	replace MI_CAD_COMPLICATION=1 if 
 		substr(`icd_code',1,5)=="41001"|
 		substr(`icd_code',1,5)=="41011"|
 		substr(`icd_code',1,5)=="41041"|
@@ -875,7 +885,7 @@ foreach icd_code of varlist DX1-DX30{;
 	replace CARDIAC_COMPLICATION_NOS=1 if 
 		substr(`icd_code',1,4)=="9971";
 	
-	replace HEMORRHAGE_OR_ACCIDENTAL_LACERATION=1 if 
+	replace HEMORRHAGE_OR_LACERATION=1 if 
 		substr(`icd_code',1,5)=="56881"|
 		substr(`icd_code',1,4)=="5967"|
 		substr(`icd_code',1,5)=="60883"|
@@ -891,9 +901,7 @@ foreach icd_code of varlist DX1-DX30{;
 		substr(`icd_code',1,4)=="5121";
 };
 
-
-#delimit ;
-label define OBSTRUCTION
+label define GI_OBSTRUCTION
 	0 "no" 
 	1 "yes",
 	modify; 
@@ -945,7 +953,7 @@ label define CENTRAL_CATHETER_INFECTION
 	0 "no" 
 	1 "yes",
 	modify; 
-label define FOREIGN_BODY_OR_OTHER_NOS_COMPLICATION
+label define FB_OR_OTHER_NOS_COMPLICATION
 	0 "no" 
 	1 "yes",
 	modify; 
@@ -965,11 +973,11 @@ label define PULMONARY_EMBOLISM
 	0 "no" 
 	1 "yes",
 	modify; 
-label define MYOCARDIAL_INFARCTION_CAD_COMPLICATION
+label define MI_CAD_COMPLICATION
 	0 "no" 
 	1 "yes",
 	modify; 
-label define HEMORRHAGE_OR_ACCIDENTAL_LACERATION
+label define HEMORRHAGE_OR_LACERATION
 	0 "no" 
 	1 "yes",
 	modify; 
@@ -978,7 +986,7 @@ label define PNEUMONIA_PNEUMOTHORAX
 	1 "yes",
 	modify; 
 
-label values OBSTRUCTION OBSTRUCTION ;
+label values GI_OBSTRUCTION GI_OBSTRUCTION ;
 label values CDIFF CDIFF ;
 label values SEPSIS SEPSIS ;
 label values BACTEREMIA BACTEREMIA  ;
@@ -991,13 +999,13 @@ label values ABCESS ABCESS ;
 label values WOUND_COMPLICATIONS WOUND_COMPLICATIONS;
 label values SEROMA SEROMA  ;
 label values CENTRAL_CATHETER_INFECTION CENTRAL_CATHETER_INFECTION;
-label values FOREIGN_BODY_OR_OTHER_NOS_COMPLICATION FOREIGN_BODY_OR_OTHER_NOS_COMPLICATION;
+label values FB_OR_OTHER_NOS_COMPLICATION FB_OR_OTHER_NOS_COMPLICATION;
 label values URETERAL_URETHRAL_STRICTURE URETERAL_URETHRAL_STRICTURE;
 label values STOMA_COMPLICATION STOMA_COMPLICATION;
 label values DVT DVT ;
 label values PULMONARY_EMBOLISM PULMONARY_EMBOLISM;
-label values MYOCARDIAL_INFARCTION_CAD_COMPLICATION MYOCARDIAL_INFARCTION_CAD_COMPLICATION;
-label values HEMORRHAGE_OR_ACCIDENTAL_LACERATION HEMORRHAGE_OR_ACCIDENTAL_LACERATION;
+label values MI_CAD_COMPLICATION MI_CAD_COMPLICATION;
+label values HEMORRHAGE_OR_LACERATION HEMORRHAGE_OR_LACERATION;
 label values PNEUMONIA_PNEUMOTHORAX  PNEUMONIA_PNEUMOTHORAX  ;
 
 /*Note that all of the above complications are in the same admission as the INDEX EVENT*/
@@ -1011,8 +1019,7 @@ use "NRD_2014_Core_Readmit.dta", clear;
 	keep
 		AGE
 		AGE_CAT
-		WEEKEND 
-		DIED 
+		WEEKEND  
 		DISCWT 
 		DISPUNIFORM 
 		DMONTH 
@@ -1039,12 +1046,13 @@ use "NRD_2014_Core_Readmit.dta", clear;
 		YEAR 
 		ZIPINC_QRTL 
 		INDEX_EVENT
+		INDEX_DX
 		DISCHARGE_DATE 
 		READMIT
 		CHARLSON
 		MINIMALLY_INVASIVE
 		ROBOT_ASSISTED
-		OBSTRUCTION 
+		GI_OBSTRUCTION 
 		CDIFF 
 		SEPSIS 
 		BACTEREMIA 
@@ -1057,18 +1065,32 @@ use "NRD_2014_Core_Readmit.dta", clear;
 		WOUND_COMPLICATIONS
 		SEROMA 
 		CENTRAL_CATHETER_INFECTION
-		FOREIGN_BODY_OR_OTHER_NOS_COMPLICATION
+		FB_OR_OTHER_NOS_COMPLICATION
 		URETERAL_URETHRAL_STRICTURE
 		STOMA_COMPLICATION
 		DVT
 		PULMONARY_EMBOLISM
-		MYOCARDIAL_INFARCTION_CAD_COMPLICATION
-		HEMORRHAGE_OR_ACCIDENTAL_LACERATION
+		MI_CAD_COMPLICATION
+		HEMORRHAGE_OR_LACERATION
 		PNEUMONIA_PNEUMOTHORAX;		
 		
 save  "NRD_2014_Core_Readmit_Narrow.dta", replace;
 append using NRD_2014_Hospital ;
 
+# delimit;
+import delimited "cc2014NRD.csv", clear; 
+rename year YEAR;
+rename ccr_nrd CCR_NRD;
+rename wageindex WAGEINDEX;
+gen hosp_nrd_str=substr(hosp_nrd,2,5);
+destring hosp_nrd_str, gen(HOSP_NRD);
+drop hosp_nrd_str hosp_nrd;
+save "cc2014NRD.dta",replace;
+use "NRD_2014_Core_Readmit_Narrow.dta", clear;
+merge m:1 HOSP_NRD using "cc2014NRD.dta"; drop _merge;
+gen INDEX_COSTS=(TOTCHG*CCR_NRD);
+la var INDEX_COSTS "Variable calculated by dividing the TOTCHG variable by CCR";
+save "NRD_2014_Core_Readmit_Narrow_Costs.dta", replace;
 
 
 /* Add hospital dummy records */
@@ -1077,10 +1099,10 @@ append using NRD_2014_Hospital ;
 
 
 append using NRD_2014_Hospital;
-use "NRD_2014_Core_Readmit_Narrow.dta", clear; 
+use "NRD_2014_Core_Readmit_Narrow_Costs.dta", clear; 
 merge m:1 HOSP_NRD using "NRD_2014_Hospital.dta"; drop _merge;
 drop if INDEX_EVENT==0;
-save "NRD_2014_Core_Readmit_Narrow_Hosp.dta", replace;
+save "NRD_2014_Core_Readmit_Narrow_Costs_Hosp.dta", replace;
 
  
 
@@ -1196,10 +1218,11 @@ recode CM_WGHTLOSS               (-9 -8 -6 -5=.) ;
 recode HOSP_NRD                  (-9999 -8888 -6666=.) ;
 recode HOSP_NRD                   (-99999999999999 -88888888888888 -66666666666666=.) ;
 
-merge 1:1 KEY_NRD HOSP_NRD using "NRD_2014_Core_Readmit_Narrow_Hosp.dta"; 
+#delimit;
+merge 1:1 KEY_NRD HOSP_NRD using "NRD_2014_Core_Readmit_Narrow_Costs_Hosp.dta"; 
 drop if _merge!=3;
 drop _merge;
-save "NRD_2014_Core_Readmit_Narrow_Hosp_Severity.dta", replace;
+save "NRD_2014_Core_Readmit_Narrow_Costs_Hosp_Severity.dta", replace;
 
  
  
