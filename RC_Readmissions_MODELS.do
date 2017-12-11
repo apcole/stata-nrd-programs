@@ -2,8 +2,13 @@
 cd "/Users/Putnam_Cole/Dropbox/1_ResearchProjects/1_HarvardProjects/NRD_RC_Predictors/Data";
 use "NRD_2014_Core_Readmit_Narrow_Costs_Hosp_Severity.dta", replace; 
 
-/* Create variable CASELOD for HOSP_NRD */
+/* Keeps only those with INDEX_DX as defined in the LOADER file, e.g. only RC patients with bladder CA */
 keep if INDEX_DX==1;
+/* drops if patient is resident ot a different state than where surgery was performed */
+drop if RESIDENT==0;
+
+/*Generation of volume variables */
+/* Create variable CASELOAD for HOSP_NRD, and collapse so it equals hosp */
 gen CASELOAD=1;
 collapse (sum) CASELOAD, by (HOSP_NRD);
 xtile CASELOAD_QUART=CASELOAD, nquantiles(4);
@@ -24,6 +29,7 @@ save "NRD_2014_Core_Readmit_Narrow_Costs_Hosp_Severity_C.dta", replace;
 rm "Caseload.dta";
 describe;
 
+/*Generation of READMIT_NUMBER variable*/
 /* Create "READMIT_NUMBER" variable for HOSP_NRD */
 collapse (sum) READMIT, by (HOSP_NRD);
 rename READMIT READMIT_NUMBER;
@@ -52,7 +58,7 @@ recode CHARLSON
 	gen(CCI_CAT);
 xtile CASELOAD_20=CASELOAD, nquantiles(20);
 	
-drop if RESIDENT==0;
+
 
 /* */
 
@@ -83,18 +89,23 @@ svy linearized: tab CASELOAD_QUART READMIT, col pearson;
 
 #delimit cr
 
-xtmelogit READMIT, or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE, or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE i.SEX, or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT, or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART, or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE , or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR, or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL, or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.DMONTH, or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE i.DMONTH, or || HOSP_NRD: , intpoints(10) 
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE i.DMONTH c.LOS, or || HOSP_NRD: , intpoints(10) 
+/* multilevel model with a random effects variable for HOSP_NRD*/
 xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE  i.DMONTH c.LOS c.INDEX_COSTS, or || HOSP_NRD: , intpoints(10) 
+
+
+/* Trial models to determine which ones made the model break*/
+
+*/xtmelogit READMIT, or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT c.AGE, or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT c.AGE i.SEX, or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT, or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART, or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE , or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR, or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL, or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.DMONTH, or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE i.DMONTH, or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE i.DMONTH c.LOS, or || HOSP_NRD: , intpoints(10) 
 
 /***> Calculation of chi square values for partial R-square calculations (To calculate R-square use Excel-Calculator)*/
 /* Patient-level socioeconomic demographics// combined patient level variables*/
