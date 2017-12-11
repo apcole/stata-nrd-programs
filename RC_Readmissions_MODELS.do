@@ -124,7 +124,15 @@ testparm i.H_CONTROL
 testparm i.HOSP_BEDSIZE
 testparm i.CASELOAD_QUART
 
+*********************************************
+*** Generate postestimation probabilities ***
+*********************************************
 
+***> linear predictor for the random effects
+
+predict re*, reffects 
+describe re1
+sum re1, detail
 
 /*BELOW HERE JUST PLAYING AROUND*/
 
