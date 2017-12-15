@@ -61,29 +61,27 @@ xtile CASELOAD_20=CASELOAD, nquantiles(20);
 ***> Regular crosstabs to get the frequencies and row percentages, ANOVA for continuous variables
 #delimit;
 
-oneway LOS READMIT, means freq;
+oneway AGE READMIT, means freq;
 
-tab AGE_CAT READMIT, row;
+tab AGE_CAT READMIT, row chi;
 
-tab SEX READMIT, row;
+tab SEX READMIT, row chi;
 
-tab CCI_CAT READMIT, row;
+tab CCI_CAT READMIT, row chi;
 
-tab CASELOAD_QUART READMIT, row;
+tab CASELOAD_QUART READMIT, row chi;
 
-tab MINIMALLY_INVASIVE READMIT, row;
+tab MINIMALLY_INVASIVE READMIT, row chi;
 
-tab PAYOR READMIT, row;
+tab PAYOR READMIT, row chi;
 
-tab H_CONTROL READMIT, row;
+tab H_CONTROL READMIT, row chi;
 
-tab ZIPINC_QRTL READMIT, row;
+tab ZIPINC_QRTL READMIT, row chi;
 
-tab HOSP_URCAT4 READMIT, row;
+tab HOSP_BEDSIZE READMIT, row chi;
 
-tab HOSP_BEDSIZE READMIT, row;
-
-tab DMONTH READMIT, row;
+tab DMONTH READMIT, row chi;
 
 oneway LOS READMIT, means freq;
 
@@ -118,8 +116,6 @@ svy linearized: tab H_CONTROL READMIT, row pearson;
 
 svy linearized: tab ZIPINC_QRTL READMIT, row pearson;
 
-svy linearized: tab HOSP_URCAT4 READMIT, row pearson;
-
 svy linearized: tab HOSP_BEDSIZE READMIT, row pearson;
 
 svy linearized: tab DMONTH READMIT, row pearson;
@@ -136,7 +132,7 @@ svy linearized: tab CASELOAD_QUART READMIT, row pearson;
 #delimit cr
 
 /* multilevel model with a random effects variable for HOSP_NRD*/
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_URCAT4 i.HOSP_BEDSIZE  i.DMONTH c.LOS c.INDEX_COSTS, or || HOSP_NRD: , intpoints(10) 
+xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE  i.DMONTH c.LOS c.INDEX_COSTS, or || HOSP_NRD: , intpoints(10) 
 
 
 /* Trial models to determine which ones made the model break*/
@@ -179,13 +175,23 @@ predict re*, reffects
 describe re1
 sum re1, detail
 
+by re1, sort: gen nvals_re1 = _n == 1 
+count if nvals_re1==1
+
 ***> Calculate standard errors for re*
-predict se1*, reses
+predict se*, reses
+
+by se1, sort: gen nvals_se1 = _n == 1 
+count if nvals_se1==1
+
 
 ***> Linear predictor for the fixed effects
 predict xb, xb 
 describe xb
 sum xb, detail
+
+by xb, sort: gen nvals_xb1 = _n == 1 
+count if nvals_xb1==1
 
 
 ***> Predicted mean including both fixed and random effects. By default, this is based on a linear predictor that includes both the fixed effects and the random effects, and the predicted mean is conditional on the values of the random effects.
@@ -200,12 +206,15 @@ bysort HOSP_NRD: egen meanmufac = mean (mu)
 
 
 *****> Counts number of unique values of meanmufac which is the facility-level probability of readmission. 
-by meanmufac, sort: gen nvals = _n == 1 
-count if nvals==1
+by meanmufac, sort: gen nvals_meanmufac = _n == 1 
+count if nvals_meanmufac==1
 
 **> Predicted mean probability from mixed-effects model overall
 egen meanmu = mean (mu)
 tab meanmu
+
+by meanmu, sort: gen nvals_meanmu = _n == 1 
+count if nvals_meanmu==1
 
 ***>> Scatter plots of hospital level probability of readmission. 
 ****>> Unranked
@@ -218,9 +227,9 @@ sort rank_mu
 twoway (scatter meanmufac rank) (scatter meanmu rank)
 
 *****>>>>>Ranked by READMIT_RATE
-egen rank_readmit=rank(READMIT_RATE)
-sort rank_readmit
-twoway (scatter meanmufac rank_readmit) (scatter meanmu rank_readmit)
+egen rank_meanmufac=rank(meanmufac)
+sort rank_meanmufac
+twoway (scatter meanmufac rank_meanmufac) (scatter meanmu rank_meanmufac)
 
 
 ******************
@@ -228,28 +237,46 @@ twoway (scatter meanmufac rank_readmit) (scatter meanmu rank_readmit)
 ******************
 
 ***> Calculate standard errors for re*
-predict se2*, reses
+/*WHY DO I NEED to do this again?*/
+predict se_*, reses
 
-*> (1) Analyses using "meanmu", which should be predicted mean probability from mixed-effects models
+*> (1) Analyses using "meanmu", which should be predicted mean probability from mixed-effects models...adding the Re1 to the log transformed meanmu?
 gen logitmeanmu=log(meanmu/(1-meanmu))
-gen preread=exp(logitmeanmu+re1)/(1+exp(logitmeanmu+re1))
-sum preread, detail
+gen mu_pred_readmit=exp(logitmeanmu+re1)/(1+exp(logitmeanmu+re1))
+sum mu_pred_readmit, detail
 
-bysort HOSP_NRD: egen meanpreread=mean(preread)
+
+by mu_pred_readmit , sort: gen nvals_mu_pred_readmit = _n == 1 
+count if nvals_mu_pred_readmit==1
+
+
+bysort HOSP_NRD: egen mu_pred_readmit_fac=mean(mu_pred_readmit)
+
+
+by mu_pred_readmit_fac , sort: gen nvals_mu_pred_readmit_fac = _n == 1 
+count if nvals_mu_pred_readmit_fac==1
+
 
 *> Generate lower and upper confidence intervals for preread (Dr. Lipsitz)
-gen lowerci=logitmeanmu+re1-1.96*se1
-gen upperci=logitmeanmu+re1+1.96*se1
+gen log_lowerci=logitmeanmu+re1-1.96*se1
+gen log_upperci=logitmeanmu+re1+1.96*se1
 
-gen lowerpreread=exp(lowerci)/(1+exp(lowerci))
-bysort HOSP_NRD: egen lowermeanpreread=mean(lowerpreread)
-gen upperpreread=exp(upperci)/(1+exp(upperci))
-bysort HOSP_NRD: egen uppermeanpreread=mean(upperpreread)
+gen lowerbound_mu_pred_readmit=exp(log_lowerci)/(1+exp(log_lowerci))
+bysort HOSP_NRD: egen lowerbound_mu_pred_readmit_fac=mean(lowerbound_mu_pred_readmit)
+gen upperbound_mu_pred_readmit=exp(log_upperci)/(1+exp(log_upperci))
+bysort HOSP_NRD: egen upperbound_mu_pred_readmit_fac=mean(upperbound_mu_pred_readmit)
+
+by lowerbound_mu_pred_readmit, sort: gen nvals_lowerpredread= _n == 1 
+count if nvals_lowerpredread==1
+by lowerbound_mu_pred_readmit_fac, sort: gen nvals_lowerpredread_fac= _n == 1 
+count if nvals_lowerpredread_fac==1
+
+
+
 
 **> Then use "lowermeanpreread" and "uppermeanpreread" for collapsing command (rank meanpreread after collapsing)
-egen rankmeanpreread=rank(meanpreread)
-twoway (scatter meanpreread rankmeanpreread)(scatter lowermeanpreread rankmeanpreread)(scatter uppermeanpreread rankmeanpreread)
-
+egen rank_mu_pred_readmit_fac=rank(mu_pred_readmit_fac)
+twoway (scatter mu_pred_readmit_fac rank_mu_pred_readmit_fac)(scatter lowerbound_mu_pred_readmit_fac rank_mu_pred_readmit_fac)(scatter upperbound_mu_pred_readmit_fac rank_mu_pred_readmit_fac)
 
 
 
@@ -258,23 +285,29 @@ twoway (scatter meanpreread rankmeanpreread)(scatter lowermeanpreread rankmeanpr
 *********
 
 *> Mean overall readmission rate (unadjusted??)
-egen meanread=mean(READMIT)
+egen meanreadmit_rate=mean(READMIT)
 
-*> (2) Analyses using "meanread", which should be unadjusted (?) mean readmission rate (?) in overall population
-gen logitmeanread=log(meanread/(1-meanread))
-gen preread2=exp(logitmeanread+re1)/(1+exp(logitmeanread+re1))
-sum preread2, detail
-bysort HOSP_NRD: egen meanpreread2=mean(preread2)
+tab meanreadmit
+
+twoway (scatter meanreadmit HOSP_NRD) (scatter READMIT HOSP_NRD)
+
+
+*> (2) Analyses using "pred_readmit", which should be unadjusted (?) mean readmission rate (?) in overall population
+gen logitmeanreadmit=log(meanreadmit/(1-meanreadmit))
+gen pred_readmit=exp(logitmeanreadmit+re1)/(1+exp(logitmeanreadmit+re1))
+sum pred_readmit, detail
+
+bysort HOSP_NRD: egen real_pred_readmit_fac=mean(real_pred_readmit)
 
 
 *> Generate lower and upper confidence intervals for preread2 (Dr. Lipsitz)
-gen lowerci2=logitmeanread+re1-1.96*se1
-gen upperci2=logitmeanread+re1+1.96*se1
+gen real_loglowerci=logitmeanreadmit+re1-1.96*se1
+gen real_logupperci=logitmeanreadmit+re1+1.96*se1
 
-gen lowerpreread2=exp(lowerci2)/(1+exp(lowerci2))
-bysort HOSP_NRD: egen lowermeanpreread2=mean(lowerpreread2)
-gen upperpreread2=exp(upperci2)/(1+exp(upperci2))
-bysort HOSP_NRD: egen uppermeanpreread2=mean(upperpreread2)
+gen lowerbound_real_pred_readmit=exp(real_loglowerci)/(1+exp(real_loglowerci))
+bysort HOSP_NRD: egen lowerbound_real_pred_readmit_fac=mean(lowerbound_real_pred_readmit)
+gen upperbound_real_pred_readmit=exp(real_logupperci)/(1+exp(real_logupperci))
+bysort HOSP_NRD: egen upperbound_mu_pred_readmit_fac=mean(upperbound_real_pred_readmit)
 
 
 save "BladderPostmixes1.dta", replace
@@ -297,8 +330,8 @@ egen rankmeanpreread2=rank(meanpreread2)
 *** Create figures ***
 **********************
 
-scatter meanpreread2 rankmeanpreread2 || lowermeanpreread2 rankmeanpreread2
-scatter meanpreread rankmeanpreread || lowermeanpreread rankmeanpreread
+twoway scatter meanpreread2 rankmeanpreread2 || lowermeanpreread2 rankmeanpreread2
+twoway scatter meanpreread rankmeanpreread || lowermeanpreread rankmeanpreread
 
 histobox meanpreread2 
 scatter preread meancaseload || lfit preread meancaseload
