@@ -57,11 +57,37 @@ recode CHARLSON
 	(else=.),
 	gen(CCI_CAT);
 xtile CASELOAD_20=CASELOAD, nquantiles(20);
-	
 
+***> Regular crosstabs to get the frequencies and row percentages, ANOVA for continuous variables
+#delimit;
 
-/* */
+oneway LOS READMIT, means freq;
 
+tab AGE_CAT READMIT, row;
+
+tab SEX READMIT, row;
+
+tab CCI_CAT READMIT, row;
+
+tab CASELOAD_QUART READMIT, row;
+
+tab MINIMALLY_INVASIVE READMIT, row;
+
+tab PAYOR READMIT, row;
+
+tab H_CONTROL READMIT, row;
+
+tab ZIPINC_QRTL READMIT, row;
+
+tab HOSP_URCAT4 READMIT, row;
+
+tab HOSP_BEDSIZE READMIT, row;
+
+tab DMONTH READMIT, row;
+
+oneway LOS READMIT, means freq;
+
+oneway INDEX_COSTS READMIT, means freq;
 
 /* National estimates based on NRD design */ /* Specify the sampling design with sampling weights DISCWT, */ /* hospital clusters HOSP_NRD, and stratification NRD_STRATUM */ svyset HOSP_NRD [ pw=DISCWT ], strata( NRD_STRATUM ) ;
 # delimit;
@@ -73,24 +99,44 @@ svy: mean READMIT, subpop(INDEX_EVENT);
 
 /* Patient-level demographics */
 /* "linearized*: Taylor-linearized variance estimation, see http://www.stata.com/manuals13/svysvy.pdf */
+/* Need to discuss with STU why we can't use ANOVA */
+svy linearized: mean AGE, over(READMIT);
+
 svy linearized: tab AGE_CAT  READMIT, row pearson;
 
 svy linearized: tab SEX READMIT, row pearson;
 
+svy linearized: tab CCI_CAT READMIT, row pearson;
+
+svy linearized: tab CASELOAD_QUART READMIT, row pearson;
+
+svy linearize: tab MINIMALLY_INVASIVE READMIT, row;
+
 svy linearized: tab PAYOR READMIT, row pearson;
+
+svy linearized: tab H_CONTROL READMIT, row pearson;
 
 svy linearized: tab ZIPINC_QRTL READMIT, row pearson;
 
 svy linearized: tab HOSP_URCAT4 READMIT, row pearson;
 
-svy linearized: tab CCI_CAT READMIT, row pearson;
+svy linearized: tab HOSP_BEDSIZE READMIT, row pearson;
+
+svy linearized: tab DMONTH READMIT, row pearson;
+
+svy linearized: mean LOS, over(READMIT);
+
+svy linearized: mean INDEX_COSTS, over(READMIT);
+
+
+
 
 svy linearized: tab CASELOAD_QUART READMIT, row pearson;
 
 #delimit cr
 
 /* multilevel model with a random effects variable for HOSP_NRD*/
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE  i.DMONTH c.LOS c.INDEX_COSTS, or || HOSP_NRD: , intpoints(10) 
+xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_URCAT4 i.HOSP_BEDSIZE  i.DMONTH c.LOS c.INDEX_COSTS, or || HOSP_NRD: , intpoints(10) 
 
 
 /* Trial models to determine which ones made the model break*/
