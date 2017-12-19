@@ -263,13 +263,11 @@ recode ZIPINC_QRTL(-9 -8 -6 -5=.) ;
 
 /* recodes AGE -> AGE_CAT and FEMALE -> SEX*/
 recode AGE 
-	(18/24=0 "< 25 yo") 
-	(25/34=1 "25-34 yo") 
-	(35/44=2 "35-44 yo") 
-	(45/54=3 "45-54 yo") 
-	(55/64=4 "55-64 yo") 
-	(65/74=5 "65-74 yo") 
-	(75/120=6 "< 75 yo")
+	(18/50=0 "< 50 yo") 
+	(51/60=1 "51-60 yo") 
+	(61/70=2 "61-70 yo") 
+	(71/80=3 "71-80 yo") 
+	(81/120=4 "81 and above yo") 
 	(else=7 "Unknown/NA"),
 gen (AGE_CAT);
 	recode FEMALE 
