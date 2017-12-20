@@ -258,12 +258,13 @@ count if nvals_mu_pred_readmit_fac==1
 
 
 *> Generate lower and upper confidence intervals for preread (Dr. Lipsitz)
-gen log_lowerci=logitmeanmu+re1-1.96*se1
-gen log_upperci=logitmeanmu+re1+1.96*se1
+gen mu_log_lowerci=logitmeanmu+re1-1.96*se1
+gen mu_log_upperci=logitmeanmu+re1+1.96*se1
 
-gen lowerbound_mu_pred_readmit=exp(log_lowerci)/(1+exp(log_lowerci))
+gen lowerbound_mu_pred_readmit=exp(mu_log_lowerci)/(1+exp(mu_log_lowerci))
 bysort HOSP_NRD: egen lowerbound_mu_pred_readmit_fac=mean(lowerbound_mu_pred_readmit)
-gen upperbound_mu_pred_readmit=exp(log_upperci)/(1+exp(log_upperci))
+
+gen upperbound_mu_pred_readmit=exp(mu_log_upperci)/(1+exp(mu_log_upperci))
 bysort HOSP_NRD: egen upperbound_mu_pred_readmit_fac=mean(upperbound_mu_pred_readmit)
 
 by lowerbound_mu_pred_readmit, sort: gen nvals_lowerpredread= _n == 1 
@@ -297,17 +298,17 @@ gen logitmeanreadmit=log(meanreadmit/(1-meanreadmit))
 gen pred_readmit=exp(logitmeanreadmit+re1)/(1+exp(logitmeanreadmit+re1))
 sum pred_readmit, detail
 
-bysort HOSP_NRD: egen real_pred_readmit_fac=mean(real_pred_readmit)
+bysort HOSP_NRD: egen pred_readmit_fac=mean(pred_readmit)
 
 
 *> Generate lower and upper confidence intervals for preread2 (Dr. Lipsitz)
-gen real_loglowerci=logitmeanreadmit+re1-1.96*se1
-gen real_logupperci=logitmeanreadmit+re1+1.96*se1
+gen read_loglowerci=logitmeanreadmit+re1-1.96*se1
+gen read_logupperci=logitmeanreadmit+re1+1.96*se1
 
-gen lowerbound_real_pred_readmit=exp(real_loglowerci)/(1+exp(real_loglowerci))
-bysort HOSP_NRD: egen lowerbound_real_pred_readmit_fac=mean(lowerbound_real_pred_readmit)
-gen upperbound_real_pred_readmit=exp(real_logupperci)/(1+exp(real_logupperci))
-bysort HOSP_NRD: egen upperbound_mu_pred_readmit_fac=mean(upperbound_real_pred_readmit)
+gen lowerbound_read_pred_readmit=exp(read_loglowerci)/(1+exp(read_loglowerci))
+bysort HOSP_NRD: egen lowerbound_read_pred_readmit_fac=mean(lowerbound_read_pred_readmit)
+gen upperbound_read_pred_readmit=exp(read_logupperci)/(1+exp(read_logupperci))
+bysort HOSP_NRD: egen upperbound_read_pred_readmit_fac=mean(upperbound_read_pred_readmit)
 
 
 save "BladderPostmixes1.dta", replace
@@ -318,12 +319,28 @@ save "BladderPostmixes1.dta", replace
 
 use "BladderPostmixes1.dta", clear
 
-collapse meanpreread2 lowermeanpreread2 uppermeanpreread2 mu meanmu AGE SEX CCI_CAT CASELOAD_QUART MINIMALLY_INVASIVE PAYOR H_CONTROL ZIPINC_QRTL HOSP_BEDSIZE DMONTH LOS INDEX_COSTS , by(HOSP_NRD)
+#delimit;
+collapse  
+	AGE 
+	SEX 
+	CCI_CAT 
+	CASELOAD_QUART 
+	MINIMALLY_INVASIVE 
+	PAYOR H_CONTROL 
+	ZIPINC_QRTL 
+	HOSP_BEDSIZE 
+	DMONTH 
+	LOS INDEX_COSTS, 
+		
+		by(HOSP_NRD);
+		
+#delimit cr
+
 
 ***> Rank everything NOW, because then it will be facility-level.
 
-egen rankmeanpreread=rank(meanpreread)
-egen rankmeanpreread2=rank(meanpreread2)
+egen rankpreread_mu=rank(mu_pred_readmit_fac)
+egen rankmeanpreread_read=rank(pred_readmit_fac)
 
 
 **********************
