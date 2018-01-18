@@ -148,6 +148,16 @@ xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.
 */xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE i.DMONTH, or || HOSP_NRD: , intpoints(10) 
 */xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE i.DMONTH c.LOS, or || HOSP_NRD: , intpoints(10) 
 
+/* Models for comparing log likelihood*/
+
+*/logit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE  i.DMONTH c.LOS c.INDEX_COSTS, or
+*/ xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART  i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE  i.DMONTH, or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.MINIMALLY_INVASIVE i.PAYOR  i.ZIPINC_QRTL  i.DMONTH c.LOS c.INDEX_COSTS, or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT i.CASELOAD_QUART i.PAYOR i.ZIPINC_QRTL i.DMONTH, or || HOSP_NRD: , intpoints(10) 
+
+
+
+
 /***> Calculation of chi square values for partial R-square calculations (To calculate R-square use Excel-Calculator)*/
 /* Patient-level socioeconomic demographics// combined patient level variables*/
 testparm c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE i.DMONTH c.LOS c.INDEX_COSTS 
@@ -277,7 +287,50 @@ count if nvals_lowerpredread_fac==1
 
 **> Then use "lowermeanpreread" and "uppermeanpreread" for collapsing command (rank meanpreread after collapsing)
 egen rank_mu_pred_readmit_fac=rank(mu_pred_readmit_fac)
-twoway (scatter mu_pred_readmit_fac rank_mu_pred_readmit_fac)(scatter lowerbound_mu_pred_readmit_fac rank_mu_pred_readmit_fac)(scatter upperbound_mu_pred_readmit_fac rank_mu_pred_readmit_fac)
+
+#delimit;
+collapse  
+	AGE 
+	SEX 
+	CCI_CAT 
+	CASELOAD_QUART 
+	MINIMALLY_INVASIVE 
+	PAYOR H_CONTROL 
+	ZIPINC_QRTL 
+	HOSP_BEDSIZE 
+	DMONTH 
+	LOS 
+	INDEX_COSTS
+	mu_pred_readmit_fac
+	lowerbound_mu_pred_readmit_fac
+	upperbound_mu_pred_readmit_fac,	
+		by(HOSP_NRD);
+		
+	egen rank_mu_pred_readmit_fac=rank(mu_pred_readmit_fac);
+	drop if mu_pred_readmit_fac==.;
+		
+#delimit;		
+twoway 
+	(scatter mu_pred_readmit_fac rank_mu_pred_readmit_fac, msymbol(point) mcolor(gs1) )
+	(scatter lowerbound_mu_pred_readmit_fac rank_mu_pred_readmit_fac, msymbol(point) mcolor(gs10) )
+	(scatter upperbound_mu_pred_readmit_fac rank_mu_pred_readmit_fac, msymbol(point) mcolor(gs10)), 
+	legend(off)
+	graphregion(color(white)) 
+	bgcolor(white) 
+	title("Figure 1: Adjusted  Probabilities of Readmission" 
+		  "Based on Facility-level Random Effects Term" 
+		  "with 95% Confidence Intervals"
+		  " ", 
+		  span color(black) size(4))  
+	yla(0 "0" 0.10 "10"  0.20 "20" 0.30 "30" 0.40 "40" 0.5 "50" ) ytitle("Probability of Readmission, (%)" " ")
+	xtitle("Hospital Rank" "(least to greatest adjusted probability of readmission)");
+	#delimit cr
+
+	
+	ylabel(0 "0%" 20 "20%"  40 "40%" 60 "60%")
+
+summarize  mu_pred_readmit_fac, detail
+
 
 
 
@@ -330,8 +383,11 @@ collapse
 	ZIPINC_QRTL 
 	HOSP_BEDSIZE 
 	DMONTH 
-	LOS INDEX_COSTS, 
-		
+	LOS 
+	INDEX_COSTS
+	mu_pred_readmit_fac
+	lowerbound_mu_pred_readmit_fac
+	upperbound_mu_pred_readmit_fac,	
 		by(HOSP_NRD);
 		
 #delimit cr
