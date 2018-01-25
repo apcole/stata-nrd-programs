@@ -54,45 +54,42 @@ recode CHARLSON
 	gen(CCI_CAT);
 xtile CASELOAD_20=CASELOAD, nquantiles(20);
 
+svyset HOSP_NRD [pw=DISCWT], singleunit(cen) strata(NRD_STRATUM);
+
+/*Weighted sample sizes and exclusion criteria*/
+svy:tab READMIT, count se;
+svy:tab INDEX_DX, count se;
+svy:tab RESIDENT, count se;
+
 /* Keeps only those with INDEX_DX as defined in the LOADER file, e.g. only RC patients with bladder CA */
 keep if INDEX_DX==1;
 /* drops if patient is resident ot a different state than where surgery was performed */
 drop if RESIDENT==0;
 
+svy:tab READMIT, count se;
 
 ***> Regular crosstabs to get the frequencies and row percentages, ANOVA for continuous variables
-#delimit;
+**** Leaving these out for now because HCUP doesn't want regular frequencies in the tables. 
 
-oneway AGE READMIT, means freq;
+*/oneway AGE READMIT, means freq;
+*/tab AGE_CAT READMIT, col chi;
+*/tab SEX READMIT, col chi;
+*/tab CCI_CAT READMIT, col chi;
+*/tab CASELOAD_QUART READMIT, col chi;
+*/tab MINIMALLY_INVASIVE READMIT, col chi;
+*/tab PAYOR READMIT, col chi;
+*/tab H_CONTROL READMIT, col chi;
+*/tab ZIPINC_QRTL READMIT, col chi;
+*/tab HOSP_BEDSIZE READMIT, col chi;
+*/tab DMONTH READMIT, col chi;
+*/oneway LOS READMIT, means freq;
+*/oneway INDEX_COSTS READMIT, means freq;
 
-tab AGE_CAT READMIT, row chi;
+/* National estimates based on NRD design */ 
+/* Specify the sampling design with sampling weights DISCWT, */ 
+/* hospital clusters HOSP_NRD, and stratification NRD_STRATUM */ 
 
-tab SEX READMIT, row chi;
-
-tab CCI_CAT READMIT, row chi;
-
-tab CASELOAD_QUART READMIT, row chi;
-
-tab MINIMALLY_INVASIVE READMIT, row chi;
-
-tab PAYOR READMIT, row chi;
-
-tab H_CONTROL READMIT, row chi;
-
-tab ZIPINC_QRTL READMIT, row chi;
-
-tab HOSP_BEDSIZE READMIT, row chi;
-
-tab DMONTH READMIT, row chi;
-
-oneway LOS READMIT, means freq;
-
-oneway INDEX_COSTS READMIT, means freq;
-
-/* National estimates based on NRD design */ /* Specify the sampling design with sampling weights DISCWT, */ /* hospital clusters HOSP_NRD, and stratification NRD_STRATUM */ svyset HOSP_NRD [ pw=DISCWT ], strata( NRD_STRATUM ) ;
-# delimit;
-svyset HOSP_NRD [pw=DISCWT], singleunit(cen) strata(NRD_STRATUM);
-
+svyset HOSP_NRD [ pw=DISCWT ], strata( NRD_STRATUM ) ;
 /* Subset on index events */
 svy: total READMIT, subpop(INDEX_EVENT);
 svy: mean READMIT, subpop(INDEX_EVENT);
@@ -100,7 +97,15 @@ svy: mean READMIT, subpop(INDEX_EVENT);
 /* Patient-level demographics */
 /* "linearized*: Taylor-linearized variance estimation, see http://www.stata.com/manuals13/svysvy.pdf */
 /* Need to discuss with STU why we can't use ANOVA */
+
+svy:tab READMIT, count se;
+
+svy linearized: mean READMIT;
+
 svy linearized: mean AGE, over(READMIT);
+
+
+test [AGE]1 - [AGE]0 = 0;
 
 svy linearized: tab AGE_CAT  READMIT, row pearson;
 
@@ -129,18 +134,9 @@ svy linearized: mean LOS, over(READMIT);
 
 test [LOS]1 - [LOS]0 = 0;
 
-svy linearized: regress LOS READMIT;
-
-test READMIT;
-
 svy linearized: mean INDEX_COSTS, over(READMIT);
 
 test [INDEX_COSTS]1 - [INDEX_COSTS]0 = 0;
-
-svy linearized: regress INDEX_COSTS READMIT;
-
-test READMIT;
-
 
 #delimit cr
 
@@ -164,19 +160,19 @@ xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.
 /* Models for comparing log likelihood, full R squared is model just withe READMIT*/
 
 /*Null model (only intercept), full model is above*/
-logit READMIT 
+*/logit READMIT 
 
 /*Model with just patient characteristics */
-logit READMIT c.AGE i.SEX i.CCI_CAT i.PAYOR  i.ZIPINC_QRTL, or
+*/logit READMIT c.AGE i.SEX i.CCI_CAT i.PAYOR  i.ZIPINC_QRTL, or
 
 /*Model with hospital characteristics*/
-logit  READMIT i.H_CONTROL i.HOSP_BEDSIZE  i.CASELOAD_QUART, or 
+*/logit  READMIT i.H_CONTROL i.HOSP_BEDSIZE  i.CASELOAD_QUART, or 
 
 /*Model with hospitalization characteristics*/
-logit READMIT i.MINIMALLY_INVASIVE c.LOS c.INDEX_COSTS c.DMONTH, or 
+*/logit READMIT i.MINIMALLY_INVASIVE c.LOS c.INDEX_COSTS c.DMONTH, or 
 
-/*MOdel with just random effects*/
-xtmelogit READMIT, or || HOSP_NRD: , intpoints(10) 
+/*Model with just random effects*/
+*/xtmelogit READMIT, or || HOSP_NRD: , intpoints(10) 
 
 
 
@@ -350,9 +346,10 @@ twoway
 	#delimit cr
 
 	
-	ylabel(0 "0%" 20 "20%"  40 "40%" 60 "60%")
 
-summarize  mu_pred_readmit_fac, detail
+
+
+
 
 
 
