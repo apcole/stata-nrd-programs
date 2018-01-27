@@ -25,6 +25,16 @@ save "NRD_2014_Core_Readmit_Narrow_Costs_Hosp_Severity_C.dta", replace;
 rm "Caseload.dta";
 describe;
 
+mean CASELOAD if CASELOAD_QUART==1;
+mean CASELOAD if CASELOAD_QUART==2;
+mean CASELOAD if CASELOAD_QUART==3;
+mean CASELOAD if CASELOAD_QUART==4;
+
+summarize CASELOAD if CASELOAD_QUART==1, detail;
+summarize CASELOAD if CASELOAD_QUART==2, detail;
+summarize CASELOAD if CASELOAD_QUART==3, detail;
+summarize CASELOAD if CASELOAD_QUART==4, detail;
+
 /*Generation of READMIT_NUMBER variable*/
 /* Create "READMIT_NUMBER" variable for HOSP_NRD */
 collapse (sum) READMIT, by (HOSP_NRD);
@@ -58,13 +68,17 @@ svyset HOSP_NRD [pw=DISCWT], singleunit(cen) strata(NRD_STRATUM);
 
 /*Weighted sample sizes and exclusion criteria*/
 svy:tab READMIT, count se;
+/*Number excluded due to benign or non bladder CA*/
 svy:tab INDEX_DX, count se;
+/*Number excluded due to out of state resident*/
 svy:tab RESIDENT, count se;
 
 /* Keeps only those with INDEX_DX as defined in the LOADER file, e.g. only RC patients with bladder CA */
 keep if INDEX_DX==1;
 /* drops if patient is resident ot a different state than where surgery was performed */
 drop if RESIDENT==0;
+
+drop if CASELOAD<=10;
 
 svy:tab READMIT, count se;
 
@@ -88,71 +102,81 @@ svy:tab READMIT, count se;
 /* National estimates based on NRD design */ 
 /* Specify the sampling design with sampling weights DISCWT, */ 
 /* hospital clusters HOSP_NRD, and stratification NRD_STRATUM */ 
+/* "linearized*: Taylor-linearized variance estimation, see http://www.stata.com/manuals13/svysvy.pdf */
+svyset HOSP_NRD [pw=DISCWT], singleunit(cen) strata(NRD_STRATUM);
 
-svyset HOSP_NRD [ pw=DISCWT ], strata( NRD_STRATUM ) ;
 /* Subset on index events */
 svy: total READMIT, subpop(INDEX_EVENT);
 svy: mean READMIT, subpop(INDEX_EVENT);
 
 /* Patient-level demographics */
-/* "linearized*: Taylor-linearized variance estimation, see http://www.stata.com/manuals13/svysvy.pdf */
-/* Need to discuss with STU why we can't use ANOVA */
+/* Table1 calculations for categorical  variables*/
+#delimit cr
 
-svy:tab READMIT, count se;
+/*Readmission rates */
+svy:tab READMIT, count se
+svy linearized: mean READMIT
 
-svy linearized: mean READMIT;
+/* Sex breakdown of weighted cohorts*/
+svy linearized: tab SEX READMIT, col pearson
 
+/* Age cat */
+svy linearized: tab CCI_CAT READMIT, col pearson
+
+/* Volume cat*/
+*/svy linearized: tab CASELOAD_QUART READMIT, col pearson
+
+/* Minimally invasive*/
+svy linearize: tab MINIMALLY_INVASIVE READMIT, col pearson
+
+/* Payor*/
+svy linearized: tab PAYOR READMIT, col pearson
+
+/* Hospital ownership*/
+svy linearized: tab H_CONTROL READMIT, col pearson
+
+/* Income*/
+svy linearized: tab ZIPINC_QRTL READMIT, col pearson
+
+/* Bedsize*/
+svy linearized: tab HOSP_BEDSIZE READMIT, col pearson
+
+/* Month of hospitalization*/
+svy linearized: tab DMONTH READMIT, col pearson
+
+/*Table1 calculations for continuous variables */
+#delimit ;
+
+/* Mean age of weighted cohorts*/
+svy linearized: mean AGE;
 svy linearized: mean AGE, over(READMIT);
-
-
 test [AGE]1 - [AGE]0 = 0;
 
-svy linearized: tab AGE_CAT  READMIT, row pearson;
-
-svy linearized: tab SEX READMIT, row pearson;
-
-svy linearized: tab CCI_CAT READMIT, row pearson;
-
-svy linearized: tab CASELOAD_QUART READMIT, row pearson;
-
-svy linearize: tab MINIMALLY_INVASIVE READMIT, row;
-
-svy linearized: tab PAYOR READMIT, row pearson;
-
-svy linearized: tab H_CONTROL READMIT, row pearson;
-
-svy linearized: tab ZIPINC_QRTL READMIT, row pearson;
-
-svy linearized: tab HOSP_BEDSIZE READMIT, row pearson;
-
-svy linearized: tab DMONTH READMIT, row pearson;
-
-
-/*Two ways to check the p value for this */
-#delimit ;
+/* Mean LOS  weighted cohorts*/
+svy linearized: mean LOS;
 svy linearized: mean LOS, over(READMIT);
-
 test [LOS]1 - [LOS]0 = 0;
 
+/* Mean COSTS of weighted cohorts*/
+svy linearized: mean INDEX_COSTS;
 svy linearized: mean INDEX_COSTS, over(READMIT);
-
 test [INDEX_COSTS]1 - [INDEX_COSTS]0 = 0;
 
 #delimit cr
 
 /* multilevel model with a random effects variable for HOSP_NRD*/
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE  i.DMONTH c.LOS c.INDEX_COSTS, or || HOSP_NRD: , intpoints(10) 
+xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE  i.DMONTH c.LOS c.INDEX_COSTS, or || HOSP_NRD: , intpoints(20) 
 
 
 /* Trial models to determine which ones made the model break*/
-*/xtmelogit READMIT, or || HOSP_NRD: , intpoints(10) 
+xtmelogit READMIT, or || HOSP_NRD: , intpoints(10) 
 */xtmelogit READMIT c.AGE, or || HOSP_NRD: , intpoints(10) 
 */xtmelogit READMIT c.AGE i.SEX, or || HOSP_NRD: , intpoints(10) 
 */xtmelogit READMIT c.AGE i.SEX i.CCI_CAT, or || HOSP_NRD: , intpoints(10) 
 */xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART, or || HOSP_NRD: , intpoints(10) 
-*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE , or || HOSP_NRD: , intpoints(10) 
-*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR, or || HOSP_NRD: , intpoints(10) 
-*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL, or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.MINIMALLY_INVASIVE , or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.MINIMALLY_INVASIVE i.PAYOR, or || HOSP_NRD: , intpoints(10) 
+*/xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL, or || HOSP_NRD: , intpoints(10) 
 */xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.DMONTH, or || HOSP_NRD: , intpoints(10) 
 */xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE i.DMONTH, or || HOSP_NRD: , intpoints(10) 
 */xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE i.DMONTH c.LOS, or || HOSP_NRD: , intpoints(10) 
@@ -160,7 +184,7 @@ xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.
 /* Models for comparing log likelihood, full R squared is model just withe READMIT*/
 
 /*Null model (only intercept), full model is above*/
-*/logit READMIT 
+logit READMIT 
 
 /*Model with just patient characteristics */
 */logit READMIT c.AGE i.SEX i.CCI_CAT i.PAYOR  i.ZIPINC_QRTL, or
@@ -172,7 +196,7 @@ xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.
 */logit READMIT i.MINIMALLY_INVASIVE c.LOS c.INDEX_COSTS c.DMONTH, or 
 
 /*Model with just random effects*/
-*/xtmelogit READMIT, or || HOSP_NRD: , intpoints(10) 
+xtmelogit READMIT, or || HOSP_NRD: , intpoints(10) 
 
 
 
