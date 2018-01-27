@@ -1,12 +1,43 @@
+/*Import Data*/
 # delimit; 
 cd "/Users/Putnam_Cole/Dropbox/1_ResearchProjects/1_HarvardProjects/NRD_RC_Predictors/Data";
 use "NRD_2014_Core_Readmit_Narrow_Costs_Hosp_Severity.dta", replace; 
 
-#delimit;
-/*Generation of volume variables */
-/* Create variable CASELOAD for HOSP_NRD, and collapse so it equals hosp */
-gen CASELOAD=1;
-collapse (sum) CASELOAD, by (HOSP_NRD);
+/*Assign survey weights*/
+svyset HOSP_NRD [pw=DISCWT], singleunit(cen) strata(NRD_STRATUM);
+
+/*Weighted sample sizes and exclusion criteria*/
+svy:tab READMIT, count se;
+
+/*Number to be excluded due to benign or non bladder CA*/
+svy:tab INDEX_DX, count se;
+
+/* Drops if not bladder cancer e.g. benign indication, gyn primary, etc */
+drop if INDEX_DX!=1;
+
+/*Number to be excluded due to out of state resident*/
+svy:tab RESIDENT, count se;
+
+/*Drops if patient is resident of a different state than where surgery was performed */
+drop if RESIDENT==0;
+
+/*Need to generate CASELOAD variable*/
+sort HOSP_NRD;
+quietly by HOSP_NRD:  generate CASELOAD=_N;
+
+/* Drop if CASELOAD_PRELIM is 1 */
+drop if CASELOAD==1;
+
+/*Weighted sample sizes after exclusion criteria*/
+svy:tab READMIT, count se;
+
+by HOSP_NRD, sort: gen nvals = _n == 1;
+count if nvals==1;
+drop nvals;
+
+/*Generate quartiles (of hospitals) using previously generated caseload variable*/
+save "NRD_2014_Core_Excluded.dta", replace;
+collapse CASELOAD, by (HOSP_NRD);
 xtile CASELOAD_QUART=CASELOAD, nquantiles(4);
 label define CASELOAD_QUART 
 	1 "1st quartile" 
@@ -15,20 +46,14 @@ label define CASELOAD_QUART
 	4 "4th quartile";
 label values CASELOAD_QUART CASELOAD_QUART;
 la var CASELOAD "Caseload at HOSP_NRD per year"; 
-la var CASELOAD_QUART "Quartile of volume of HOSP_NRD";
+la var CASELOAD_QUART " Quartile of volume of HOSP_NRD (after Excluding caseload=1)";
 keep CASELOAD CASELOAD_QUART HOSP_NRD;
 save "Caseload.dta", replace;
-use "NRD_2014_Core_Readmit_Narrow_Costs_Hosp_Severity.dta", clear;
+use "NRD_2014_Core_Excluded.dta", clear;
 merge m:1 HOSP_NRD using "Caseload.dta";
 drop _merge; 
-save "NRD_2014_Core_Readmit_Narrow_Costs_Hosp_Severity_C.dta", replace; 
+save "NRD_2014_Core_Excluded.dta", replace;
 rm "Caseload.dta";
-describe;
-
-mean CASELOAD if CASELOAD_QUART==1;
-mean CASELOAD if CASELOAD_QUART==2;
-mean CASELOAD if CASELOAD_QUART==3;
-mean CASELOAD if CASELOAD_QUART==4;
 
 summarize CASELOAD if CASELOAD_QUART==1, detail;
 summarize CASELOAD if CASELOAD_QUART==2, detail;
@@ -36,23 +61,23 @@ summarize CASELOAD if CASELOAD_QUART==3, detail;
 summarize CASELOAD if CASELOAD_QUART==4, detail;
 
 /*Generation of READMIT_NUMBER variable*/
-/* Create "READMIT_NUMBER" variable for HOSP_NRD */
 collapse (sum) READMIT, by (HOSP_NRD);
 rename READMIT READMIT_NUMBER;
 la var READMIT_NUMBER "Number of readmissions in year at HOSP_NRD";
 keep READMIT_NUMBER HOSP_NRD;
 save "Readmissions.dta", replace;
-use "NRD_2014_Core_Readmit_Narrow_Costs_Hosp_Severity_C.dta", clear;
+use "NRD_2014_Core_Excluded.dta", clear;
 merge m:1 HOSP_NRD using "Readmissions.dta";
+drop _merge;
 rm "Readmissions.dta";
-rm "NRD_2014_Core_Readmit_Narrow_Costs_Hosp_Severity_C.dta";
-drop _merge; 
 describe;
 
-/* Create variable READMIT_RATE, CCI_CAT, CASELOAD_QART and drop if non-resident */
-#delimit;
+
+/* Create READMIT_RATE, CCI_CAT*/
 gen READMIT_RATE=READMIT_NUMBER/CASELOAD;
 
+
+/* Create CCI_CAT*/
 recode CHARLSON
 	(4=4 "CCI 4")
 	(5=5 "CCI 5")
@@ -62,25 +87,10 @@ recode CHARLSON
 	(9/14=9 "CCI 9+")
 	(else=.),
 	gen(CCI_CAT);
-xtile CASELOAD_20=CASELOAD, nquantiles(20);
 
+
+/*Baseline characteristics */	
 svyset HOSP_NRD [pw=DISCWT], singleunit(cen) strata(NRD_STRATUM);
-
-/*Weighted sample sizes and exclusion criteria*/
-svy:tab READMIT, count se;
-/*Number excluded due to benign or non bladder CA*/
-svy:tab INDEX_DX, count se;
-/*Number excluded due to out of state resident*/
-svy:tab RESIDENT, count se;
-
-/* Keeps only those with INDEX_DX as defined in the LOADER file, e.g. only RC patients with bladder CA */
-keep if INDEX_DX==1;
-/* drops if patient is resident ot a different state than where surgery was performed */
-drop if RESIDENT==0;
-
-drop if CASELOAD<=10;
-
-svy:tab READMIT, count se;
 
 ***> Regular crosstabs to get the frequencies and row percentages, ANOVA for continuous variables
 **** Leaving these out for now because HCUP doesn't want regular frequencies in the tables. 
@@ -124,7 +134,7 @@ svy linearized: tab SEX READMIT, col pearson
 svy linearized: tab CCI_CAT READMIT, col pearson
 
 /* Volume cat*/
-*/svy linearized: tab CASELOAD_QUART READMIT, col pearson
+svy linearized: tab CASELOAD_QUART READMIT, col pearson
 
 /* Minimally invasive*/
 svy linearize: tab MINIMALLY_INVASIVE READMIT, col pearson
@@ -162,10 +172,24 @@ svy linearized: mean INDEX_COSTS;
 svy linearized: mean INDEX_COSTS, over(READMIT);
 test [INDEX_COSTS]1 - [INDEX_COSTS]0 = 0;
 
-#delimit cr
+/* Median CASELOAD in each of the four quartiles*/
+summarize CASELOAD if CASELOAD_QUART==1, detail;
+summarize CASELOAD if CASELOAD_QUART==2, detail;
+summarize CASELOAD if CASELOAD_QUART==3, detail;
+summarize CASELOAD if CASELOAD_QUART==4, detail;
 
+
+/* Mean CASELOAD of weighted cohorts*/
+svy linearized: mean CASELOAD;
+svy linearized: mean CASELOAD, over(CASELOAD_QUART);
+
+/* CASELOAD QUARTILE of weighted cohorts */
+svy linearized: tab CASELOAD_QUART READMIT, row pearson;
+
+
+#delimit cr
 /* multilevel model with a random effects variable for HOSP_NRD*/
-xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE  i.DMONTH c.LOS c.INDEX_COSTS, or || HOSP_NRD: , intpoints(20) 
+xtmelogit READMIT c.AGE i.SEX i.CCI_CAT i.CASELOAD_QUART i.MINIMALLY_INVASIVE i.PAYOR i.H_CONTROL i.ZIPINC_QRTL i.HOSP_BEDSIZE  i.DMONTH c.LOS c.INDEX_COSTS, or || HOSP_NRD: , intpoints(20) 
 
 
 /* Trial models to determine which ones made the model break*/
@@ -197,9 +221,6 @@ logit READMIT
 
 /*Model with just random effects*/
 xtmelogit READMIT, or || HOSP_NRD: , intpoints(10) 
-
-
-
 
 /***> Calculation of chi square values for partial R-square calculations (To calculate R-square use Excel-Calculator)*/
 /* Patient-level socioeconomic demographics// combined patient level variables*/
