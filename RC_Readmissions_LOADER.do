@@ -457,11 +457,7 @@ merge 1:1 HOSP_NRD KEY_NRD using "NRD_2014_Core_Readmit.dta" ;
 save "NRD_2014_Core_Readmit.dta", replace;
 
 /*****************/
-/* Calculate CCI */
-	
-# delimit;
-use "NRD_2014_Core_Readmit.dta", clear;
-
+#delimit;
 gen MI=0;
 gen CHF=0;
 gen PVD=0;
@@ -481,14 +477,14 @@ gen METS=0;
 
 /* In the following codes, replace "`icd_code'" with variables showing ICD 9 codes */
 # delimit;
-foreach icd_code of varlist DX1-DX30{;
+foreach icd_code of varlist DX1-DX25{;
 	replace MI=1 if 
 		substr(`icd_code',1,3)=="410"| 
 		substr(`icd_code',1,3)=="412";
-		
+
 	replace CHF=1 if 
 		substr(`icd_code',1,3)=="428" ;
-	
+
 	replace PVD=1 if 
 		substr(`icd_code',1,5)=="443.9"| 
 		substr(`icd_code',1,5)=="785.4"| 
@@ -497,20 +493,16 @@ foreach icd_code of varlist DX1-DX30{;
 								
 	replace CVD=1 if 
 		substr(`icd_code',1,3)=="431"| 
-		substr(`icd_code',1,5)=="436";
-			
-	replace CVD=1 if 
-		substr(`icd_code',1,2)=="43"|
-		substr(`icd_code',3,1)=="3"| 
-		substr(`icd_code',3,1)=="4"| 
-		substr(`icd_code',3,1)=="5"| 
-		substr(`icd_code',3,1)=="7"| 
-		substr(`icd_code',3,1)=="8";
-					
+		substr(`icd_code',1,3)=="433"|
+		substr(`icd_code',1,3)=="434"|
+		substr(`icd_code',1,3)=="435"|
+		substr(`icd_code',1,3)=="436"|
+		substr(`icd_code',1,3)=="437"|
+		substr(`icd_code',1,5)=="438";
+						
 	replace DEMENTIA=1 if 
 		substr(`icd_code',1,3)=="290"; 
 
-	
 	replace CPD=1 if 
 		substr(`icd_code',1,3)=="490"|
 		substr(`icd_code',1,3)=="491"| 
@@ -535,7 +527,7 @@ foreach icd_code of varlist DX1-DX30{;
 		substr(`icd_code',1,4)=="7104"| 
 		substr(`icd_code',1,4)=="7140"| 
 		substr(`icd_code',1,4)=="7141"| 
-		substr(`icd_code',1,5)=="7142";
+		substr(`icd_code',1,4)=="7142";
 											
 	replace RHEUM=1 if 
 		substr(`icd_code',1,5)=="71481"|
@@ -548,79 +540,63 @@ foreach icd_code of varlist DX1-DX30{;
 		substr(`icd_code',1,3)=="534";
 		
 	replace LIVER1=1 if 
-		substr(`icd_code',1,3)=="571";
-	
-	replace LIVER1=1 if 
-		substr(`icd_code',5,1)=="2"| 
-		substr(`icd_code',5,1)=="4"| 
-		substr(`icd_code',5,1)=="5"| 
-		substr(`icd_code',5,1)=="6";
+		substr(`icd_code',1,4)=="5712"|
+		substr(`icd_code',1,4)=="5714"|
+		substr(`icd_code',1,4)=="5715"|	
+		substr(`icd_code',1,4)=="5716";	
 				
 	replace DM1=1 if 
-		substr(`icd_code',1,3)=="250";
-	
-	replace DM1=1 if 
-		substr(`icd_code',5,1)=="0"| 
-		substr(`icd_code',5,1)=="1"| 
-		substr(`icd_code',5,1)=="2"| 
-		substr(`icd_code',5,1)=="3"| 
-		substr(`icd_code',5,1)=="7";
+		substr(`icd_code',1,4)=="2500"| 
+		substr(`icd_code',1,4)=="2501"| 
+		substr(`icd_code',1,4)=="2502"|
+		substr(`icd_code',1,4)=="2503"|
+		substr(`icd_code',1,4)=="2507";		
 					
 	replace DM2=1 if 
-		substr(`icd_code',1,3)=="250";
-	
-	replace DM2=1 if 
-		substr(`icd_code',5,1)=="4"| 
-		substr(`icd_code',5,1)=="5"| 
-		substr(`icd_code',5,1)=="6";
+		substr(`icd_code',1,4)=="2504"|
+		substr(`icd_code',1,4)=="2505"|
+		substr(`icd_code',1,4)=="2506";		
 			
 	replace PLEGIA=1 if 
 		substr(`icd_code',1,4)=="3441";
 	
 	replace PLEGIA=1 if 
 		substr(`icd_code',1,3)=="342";
-
+	
 	replace RENAL=1 if 
-		substr(`icd_code',1,3)=="582"| 
-		substr(`icd_code',1,3)=="583"&
-		substr(`icd_code',5,1)!="8"& 
-		substr(`icd_code',5,1)!="9";
-		
-	replace RENAL=1 if 
+		substr(`icd_code',1,3)=="582"|
 		substr(`icd_code',1,3)=="585"| 
 		substr(`icd_code',1,3)=="586"| 
-		substr(`icd_code',1,3)=="588";
+		substr(`icd_code',1,3)=="588";		
+
+	replace RENAL=1 if 
+		substr(`icd_code',1,4)=="5830"|
+		substr(`icd_code',1,4)=="5831"|
+		substr(`icd_code',1,4)=="5832"|
+		substr(`icd_code',1,4)=="5834"|
+		substr(`icd_code',1,4)=="5836"|
+		substr(`icd_code',1,4)=="5837";
 
 	replace LIVER2=1 if 
-		substr(`icd_code',1,3)=="572"&
-		substr(`icd_code',5,1)!="0"| 
-		substr(`icd_code',5,1)!="1"| 
-		substr(`icd_code',5,1)!="9";
-				
-	replace LIVER2=1 if 
-		substr(`icd_code',1,4)=="4560"| 
-		substr(`icd_code',1,4)=="4561"; 
-		
-	replace LIVER2=1 if 
-		substr(`icd_code',1,5)=="45620"| 
-		substr(`icd_code',1,5)=="45621"; 
+		substr(`icd_code',1,4)=="4560"|
+		substr(`icd_code',1,4)=="4561"|
+		substr(`icd_code',1,4)=="4562"|
+		substr(`icd_code',1,4)=="5722"|
+		substr(`icd_code',1,4)=="5723"|
+		substr(`icd_code',1,4)=="5724"|
+		substr(`icd_code',1,4)=="5728";
 
 	replace AIDS=1 if 
 		substr(`icd_code',1,3)=="042"| 
 		substr(`icd_code',1,3)=="043"| 
 		substr(`icd_code',1,3)=="044";
-			
+	
 	replace METS=1 if 
-		substr(`icd_code',1,2)=="19"&
-		substr(`icd_code',3,1)*1=="6"|
-		substr(`icd_code',3,1)=="7"|
-		substr(`icd_code',3,1)=="8";
-
-	replace METS=1 if 
-		substr(`icd_code',1,2)=="19" &
-		substr(`icd_code',3,1)=="9" &
-		substr(`icd_code',5,1)*1=="0"|
-		substr(`icd_code',5,1)*1=="1";
+		substr(`icd_code',1,3)=="196"|
+		substr(`icd_code',1,3)=="197"|
+		substr(`icd_code',1,3)=="198"|
+		substr(`icd_code',1,4)=="1990"|
+		substr(`icd_code',1,4)=="1991";
 	};
 			
 egen MI_TOT = total(MI), by(NRD_VISITLINK) ;
@@ -659,6 +635,7 @@ replace METS_TOT=1 if METS_TOT>0;
 
 gen CHARLSON=MI_TOT+CHF_TOT+PVD_TOT+CVD_TOT+DEMENTIA_TOT+CPD_TOT+RHEUM_TOT+PUD_TOT+LIVER1_TOT+DM1_TOT+(DM2_TOT*2)+(PLEGIA_TOT*2)+(RENAL_TOT*2)+(LIVER2_TOT*3)+(AIDS_TOT*6);
 la var CHARLSON "Charlson comorbidity index";
+tab CHARLSON, missing;	
 tab CHARLSON, missing;	
 
 save "NRD_2014_Core_Readmit.dta", replace;
