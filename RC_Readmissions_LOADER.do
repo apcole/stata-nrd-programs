@@ -1,6 +1,7 @@
 /*Stata*/
 /* Data load and prep */ /* User-defined */ 
 # delimit ;
+set more off;
 cd "/Users/Putnam_Cole/Dropbox/1_ResearchProjects/1_HarvardProjects/NRD_RC_Predictors/Data";
 
 /* Read data elements from hospital file, label variables, recode missing variables */
@@ -262,25 +263,19 @@ recode YEAR (-999 -888 -666=.) ;
 recode ZIPINC_QRTL(-9 -8 -6 -5=.) ;
 
 /* recodes AGE -> AGE_CAT and FEMALE -> SEX*/
+#delimit;
 recode AGE 
-	(18/50=0 "< 50 yo") 
-	(51/60=1 "51-60 yo") 
-	(61/70=2 "61-70 yo") 
-	(71/80=3 "71-80 yo") 
-	(81/120=4 "81 and above yo") 
+	(18/60=0 "< 60 yo") 
+	(61/70=1 "61-70 yo") 
+	(71/80=2 "71-80 yo") 
+	(81/120=3 "81+")
 	(else=7 "Unknown/NA"),
-gen (AGE_CAT);
-	recode FEMALE 
-	(0=0 "Male")
-	(1=1 "Female") 
-	(.=2 "Unknown"), 
-	gen (SEX) ;
+	gen(AGE_CAT);
 recode PAY1
 	(3=0 "Private Insurance")
 	(1=1 "Medicare")
 	(2=2 "Medicaid") 
-	(4=3 "Self-pay") 
-	(else=4 "Other/Unknown"),
+	(else=3 "Self-pay/Other"),
 	gen (PAYOR);
 	
 	
@@ -635,7 +630,6 @@ replace METS_TOT=1 if METS_TOT>0;
 
 gen CHARLSON=MI_TOT+CHF_TOT+PVD_TOT+CVD_TOT+DEMENTIA_TOT+CPD_TOT+RHEUM_TOT+PUD_TOT+LIVER1_TOT+DM1_TOT+(DM2_TOT*2)+(PLEGIA_TOT*2)+(RENAL_TOT*2)+(LIVER2_TOT*3)+(AIDS_TOT*6);
 la var CHARLSON "Charlson comorbidity index";
-tab CHARLSON, missing;	
 tab CHARLSON, missing;	
 
 save "NRD_2014_Core_Readmit.dta", replace;
@@ -1005,7 +999,6 @@ use "NRD_2014_Core_Readmit.dta", clear;
 		DX1
 		ELECTIVE 
 		FEMALE
-		SEX
 		HOSP_NRD 
 		KEY_NRD 
 		LOS
@@ -1016,6 +1009,7 @@ use "NRD_2014_Core_Readmit.dta", clear;
 		PAYOR 
 		PL_NCHS 
 		RESIDENT 
+		REHABTRANSFER
 		SAMEDAYEVENT 
 		TOTCHG 
 		YEAR 
