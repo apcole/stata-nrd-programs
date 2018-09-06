@@ -2,7 +2,7 @@
 /* Data load and prep */ /* User-defined */ 
 # delimit ;
 set more off;
-cd "/Users/Putnam_Cole/Dropbox/1_ResearchProjects/1_HarvardProjects/NRD_RC_Predictors/Data";
+cd "NRD_RC_Predictors/Data";
 
 /* Read data elements from hospital file, label variables, recode missing variables */
 import delimited "NRD_2014_Hospital.csv";
