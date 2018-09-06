@@ -2,7 +2,7 @@
 
 /*Import Data*/
 # delimit; 
-cd "/Users/Putnam_Cole/Dropbox/1_ResearchProjects/1_HarvardProjects/NRD_RC_Predictors/Data";
+cd "/NRD_RC_Predictors/Data";
 use "NRD_2014_Core_Readmit_Narrow_Costs_Hosp_Severity.dta", replace; 
 
 /*Assign survey weights*/
